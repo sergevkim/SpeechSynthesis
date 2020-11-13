@@ -34,7 +34,10 @@ class LJSpeechDataset(Dataset):
     def __len__(self):
         return len(self.filenames)
 
-    def __getitem__(self, idx):
+    def __getitem__(
+            self,
+            idx: int,
+        ):
         filename = self.filenames[idx]
         waveform, sample_rate = torchaudio.load(filename)
         waveform = einops.rearrange(waveform, 'b x -> (b x)')
@@ -65,18 +68,18 @@ class LJSpeechDataset(Dataset):
 class LJSpeechDataModule:
     def __init__(
             self,
-            data_dir: Path,
+            data_path: Path,
             batch_size: int,
             num_workers: int,
         ):
-        self.data_dir = data_dir
+        self.data_path = data_path
         self.batch_size = batch_size
         self.num_workers = num_workers
 
     def prepare_data(self):
-        wavs_dir = self.data_dir / "wavs"
-        targets_path = self.data_dir / "metadata.csv"
-        wav_filenames = list(str(p) for p in wavs_dir.glob('*.wav'))
+        wavs_path = self.data_path / "wavs"
+        targets_path = self.data_path / "metadata.csv"
+        wav_filenames = list(str(p) for p in wavs_path.glob('*.wav'))
         wav_filenames.sort()
         targets_file = open(targets_path, 'r')
 
@@ -98,7 +101,7 @@ class LJSpeechDataModule:
     def setup(
             self,
             val_ratio,
-        ):
+        ) -> None:
         data = self.prepare_data()
         wav_filenames = data['filenames']
         targets = data['targets']
@@ -117,7 +120,7 @@ class LJSpeechDataModule:
             lengths=[train_size, val_size],
         )
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         train_dataloader = DataLoader(
             dataset=self.train_dataset,
             batch_size=self.batch_size,
@@ -126,7 +129,7 @@ class LJSpeechDataModule:
 
         return train_dataloader
 
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         val_dataloader = DataLoader(
             dataset=self.val_dataset,
             batch_size=self.batch_size,
