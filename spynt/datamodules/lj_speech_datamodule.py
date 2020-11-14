@@ -1,6 +1,7 @@
-import string
 from pathlib import Path
 from PIL import Image
+import string
+from typing import List, Tuple
 
 import einops
 import torch
@@ -8,7 +9,7 @@ import torchaudio
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
 
-from peach.utils import TokenConverter
+from spynt.utils import Vocabulary
 
 
 def zero_padding(sequence, new_length):
@@ -21,48 +22,65 @@ def zero_padding(sequence, new_length):
 class LJSpeechDataset(Dataset):
     def __init__(
             self,
-            filenames,
-            targets,
-            max_waveform_length=20000,
-            max_target_length=100,
+            filenames: List[str],
+            tokens_seqs: List[List[str]],
+            max_waveform_length: int=20000,
+            max_target_length: int=100,
         ):
         self.filenames = filenames
-        self.targets = targets
+        self.tokens_seqs = tokens_seqs
         self.max_waveform_length = max_waveform_length
         self.max_target_length = max_target_length
 
-    def __len__(self):
-        return len(self.filenames)
-
-    def __getitem__(
+    def get_tags(
             self,
             idx: int,
-        ):
+        ) -> :
+        tokens_seq = self.tokens_seqs[idx]
+        tags_seq = Tensor(Vocabulary.tokens_seq2tags_seq(
+            tokens_seq=tokens_seq,
+        ))
+        #target_length = min(len(target), self.max_target_length)
+        #padded_target = torch.zeros(self.max_target_length)
+        #padded_target[:target_length] = target[:target_length]
+        #target_length = torch.tensor(target_length)
+
+        return tags_seq, tags_seq_length
+
+    def get_waveform(
+            self,
+            idx: int,
+        ) -> Tuple[Tensor, Tensor]:
         filename = self.filenames[idx]
         waveform, sample_rate = torchaudio.load(filename)
         waveform = einops.rearrange(waveform, 'b x -> (b x)')
-        target = Tensor(TokenConverter.symbols2numbers(
-            symbols=self.targets[idx],
-        ))
 
         waveform_length = min(len(waveform), self.max_waveform_length)
         padded_waveform = torch.zeros(self.max_waveform_length)
         padded_waveform[:waveform_length] = waveform[:waveform_length]
         waveform_length = torch.tensor(waveform_length)
 
-        target_length = min(len(target), self.max_target_length)
-        padded_target = torch.zeros(self.max_target_length)
-        padded_target[:target_length] = target[:target_length]
-        target_length = torch.tensor(target_length)
+        return padded_waveform, waveform_length
+
+    def __getitem__(
+            self,
+            idx: int,
+        ):
+
+        waveform, waveform_length = self.get_waveform(idx=idx)
+        tags_seq, tags_seq_length = self.get_tags(idx=idx)
 
         result = (
-            padded_waveform,
-            padded_target,
+            waveform,
+            tags_seq,
             waveform_length,
-            target_length,
+            tags_seq_length,
         )
 
         return result
+
+    def __len__(self):
+        return len(self.filenames)
 
 
 class LJSpeechDataModule:
@@ -100,7 +118,7 @@ class LJSpeechDataModule:
 
     def setup(
             self,
-            val_ratio,
+            val_ratio: float,
         ) -> None:
         data = self.prepare_data()
         wav_filenames = data['filenames']
