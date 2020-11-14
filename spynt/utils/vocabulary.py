@@ -76,9 +76,8 @@ class Vocabulary:
 
         return tag_seqs
 
-    @classmethod
+    @staticmethod
     def prepare_lj_speech_lines(
-            cls,
             lines: List[str],
         ) -> List[str]:
         prepared_lines = list()

@@ -29,7 +29,7 @@ class Tacotron2Encoder(Module):
         self.convs_ordered_dict = OrderedDict()
 
         for i in range(3):
-            self.convs_ordered_dict[f'conv_{i}'] = Sequential(
+            self.convs_ordered_dict[f'conv_block_{i}'] = Sequential(
                 Conv1d(
                     in_channels=embedding_dim,
                     out_channels=embedding_dim,
