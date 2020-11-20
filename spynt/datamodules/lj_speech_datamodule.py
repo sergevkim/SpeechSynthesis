@@ -6,10 +6,10 @@ from typing import List, Tuple
 import einops
 import torch
 import torchaudio
-from torch import Tensor
+from torch import Tensor, FloatTensor, IntTensor
 from torch.utils.data import Dataset, DataLoader
 
-from spynt.utils import Vocabulary
+from spynt.utils import CharVocab
 
 
 def zero_padding(sequence, new_length):
@@ -29,13 +29,11 @@ class LJSpeechDataset(Dataset):
         ):
         self.filenames = filenames
         self.tokens_seqs = tokens_seqs
-        self.max_waveform_length = max_waveform_length
-        self.max_target_length = max_target_length
 
     def get_tags(
             self,
             idx: int,
-        ) -> :
+        ) -> IntTensor:
         tokens_seq = self.tokens_seqs[idx]
         tags_seq = Tensor(Vocabulary.tokens_seq2tags_seq(
             tokens_seq=tokens_seq,
@@ -45,7 +43,7 @@ class LJSpeechDataset(Dataset):
         #padded_target[:target_length] = target[:target_length]
         #target_length = torch.tensor(target_length)
 
-        return tags_seq, tags_seq_length
+        return tags_seq
 
     def get_waveform(
             self,

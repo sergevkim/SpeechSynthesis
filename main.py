@@ -1,10 +1,10 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from protostar.datamodules import LJSpeechDataModule
-from protostar.loggers import NeptuneLogger
-from protostar.models import Tacotron2Synthesizer
-from protostar.trainer import Trainer
+from spynt.datamodules import LJSpeechDataModule
+from spynt.loggers import NeptuneLogger
+from spynt.models import Tacotron2Synthesizer
+from spynt.trainer import Trainer
 
 from config import Arguments
 
@@ -19,10 +19,10 @@ def main(args):
     )
     datamodule.setup(val_ratio=args.val_ratio)
 
-    logger = NeptuneLogger(
-        api_key=None,
-        args.project_name=None,
-    )
+    #logger = NeptuneLogger(
+    #    api_key=None,
+    #    args.project_name=None,
+    #)
     trainer = Trainer(
         logger=logger,
         max_epoch=args.max_epoch,

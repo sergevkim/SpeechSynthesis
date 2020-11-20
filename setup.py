@@ -1,24 +1,18 @@
-from pathlib import Path
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 def main():
-    package_name = "spynt"
-    package_path = Path(__file__).parent.absolute()
-
-    packages = {
-        str(p.parent.relative_to(package_path)).replace('/', '.')
-        for p in (package_path / package_name).rglob("__init__.py")
-    }
+    package_name = 'spynt'
+    packages = find_packages(package_name)
+    packages = list(map(lambda x: f'{package_name}/{x}', packages))
 
     setup(
         name=package_name,
-        version="0.1.0",
+        version='0.0.1',
+        author='sergevkim',
         description="Text-to-Speech Synthesis Project",
-        packages=packages,
         package_dir={package_name: package_name},
-        include_package_data=True,
-        package_data={package_name: ["data"]},
+        packages=packages,
         classifiers=[
             "Programming Language :: Python :: 3",
             "License :: OSI Approved :: MIT License",
@@ -26,8 +20,9 @@ def main():
         ],
         python_requires='>=3.7',
         install_requires=[
-            'numpy>=1.14.5',
-        ]
+            'einops>=0.3',
+            'neptune-client>=0.4',
+        ],
     )
 
 

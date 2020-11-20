@@ -1,0 +1,2 @@
+from .tacotron_v2_synthesizer import Tacotron2Synthesizer
+

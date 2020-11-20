@@ -35,7 +35,7 @@ class Tacotron2Encoder(Module):
                     out_channels=embedding_dim,
                     kernel_size=5,
                 ),
-                BatchNorm1d(embedding_dim)
+                BatchNorm1d(embedding_dim),
                 ReLU(),
                 Dropout(p=0.5),
             )
