@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor
+from torch.nn import MSELoss
 
 from .tacotron_v2_blocks import (
     Tacotron2Decoder,
@@ -15,6 +16,8 @@ class Tacotron2Synthesizer(Module):
             embedding_dim: int=512,
         ):
         super().__init__()
+        self.criterion = MSELoss()
+
         self.encoder = Tacotron2Encoder(
             dict_length=dict_length,
             embedding_dim=embedding_dim,
@@ -32,8 +35,18 @@ class Tacotron2Synthesizer(Module):
 
         return vocoder_outputs
 
-    def training_step(self):
-        pass
+    def training_step(
+            self,
+            batch: Tensor,
+            batch_idx: int,
+        ):
+        x, y = batch
+        x = x.to(self.device)
+        y = y.to(self.device)
+        y_hat = self(x)
+        loss = criterion(y_hat, y)
+
+        return loss
 
     def validation_step(self):
         pass

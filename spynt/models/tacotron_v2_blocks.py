@@ -71,12 +71,13 @@ class DecoderPreNet(Module):
             in_features: int=256,
             out_features: int=256,
             dropout_p: float=0.5,
+            blocks_num: int=2,
         ):
         super().__init__()
 
         blocks_ordered_dict = OrderedDict()
 
-        for i in range(2):
+        for i in range(blocks_num):
             blocks_ordered_dict[f'linear_block_{i}'] = Sequential(
                 Linear(
                     in_features=in_features,
@@ -98,15 +99,34 @@ class DecoderPreNet(Module):
 class DecoderPostNet(Module):
     def __init__(
             self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: Tuple,
+            blocks_num: int=5,
         ):
         super().__init__()
 
         blocks_ordered_dict = OrderedDict()
 
-        for i in range(5):
+        blocks_ordered_dict['conv_block_0'] = Sequential(
+            Conv1d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                padding=kernel_size // 2,
+            ),
+            BatchNorm1d(num_features=out_channels),
+        )
+
+        for i in range(1, blocks_num):
             blocks_ordered_dict[f'conv_block_{i}'] = Sequential(
-                Conv1d(), #TODO
-                BatchNorm1d(),
+                Conv1d(
+                    in_channels=out_channels,
+                    out_channels=out_channels,
+                    kernel_size=kernel_size,
+                    padding=kernel_size // 2,
+                ),
+                BatchNorm1d(num_features=out_channels),
             )
 
         self.postnet_sequential = Sequential(blocks_ordered_dict)
@@ -125,6 +145,7 @@ class Tacotron2Decoder(Module):
         super().__init__()
         self.prenet = DecoderPreNet()
         self.postnet = DecoderPostNet()
+        self.
 
     def forward(
             self,
