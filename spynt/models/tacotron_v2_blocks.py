@@ -13,13 +13,17 @@ from torch.nn import (
     Module,
     ReLU,
 )
+import torch.nn.utils.rnn as rnn
 
 
 class Tacotron2Encoder(Module):
     def __init__(
             self,
             dict_length: int,
+            convs_num: int=3,
             embedding_dim: int=512,
+            kernel_size: int=5,
+            dropout_p: float=0.5,
         ):
         super().__init__()
         self.embedding = Embedding(
@@ -28,22 +32,22 @@ class Tacotron2Encoder(Module):
         ),
         self.convs_ordered_dict = OrderedDict()
 
-        for i in range(3):
+        for i in range(convs_num):
             self.convs_ordered_dict[f'conv_block_{i}'] = Sequential(
                 Conv1d(
                     in_channels=embedding_dim,
                     out_channels=embedding_dim,
-                    kernel_size=5,
+                    kernel_size=kernel_size,
                 ),
                 BatchNorm1d(embedding_dim),
                 ReLU(),
-                Dropout(p=0.5),
+                Dropout(p=dropout_p),
             )
 
         self.convs = Sequential(self.convs_ordered_dict)
         self.lstm = LSTM(
             input_size=embedding_num,
-            hidden_size=(embedding_num / 2),
+            hidden_size=(embedding_num // 2),
             num_layers=1,
             batch_first=True,
             bidirectional=True,
@@ -52,17 +56,33 @@ class Tacotron2Encoder(Module):
     def forward(
             self,
             x: Tensor,
-            input_lengths: int,
+            input_lengths: List[int], #TODO np.array?
         ):
         embedded_x = self.embedding(x)
-        embedded_x = einops.rearrange(embedded_x, 'b l -> l b')
+        embedded_x = einops.rearrange(
+            tensor=embedded_x,
+            pattern='b l e -> b e l',
+        )
 
         convs_outputs = self.convs(embedded_x)
-        convs_outputs = einops.rearrange(convs_outputs, 'l b -> b l')
+        convs_outputs = einops.rearrange(
+            tensor=convs_outputs,
+            pattern='b e l -> b l e',
+        )
+        packed_convs_outputs = rnn.pack_padded_sequence(
+            input=convs_outputs,
+            length=input_lengths,
+            batch_first=True,
+            enforce_sorted=False,
+        )
 
-        lstm_outputs, _ = self.lstm(convs_outputs)
+        lstm_outputs, _ = self.lstm(packed_convs_outputs)
+        padded_lstm_outputs, _ = rnn.pad_packed_sequence(
+            sequence=lstm_outputs,
+            batch_first=True,
+        )
 
-        return lstm_outputs
+        return padded_lstm_outputs
 
 
 class DecoderPreNet(Module):
@@ -101,7 +121,7 @@ class DecoderPostNet(Module):
             self,
             in_channels: int,
             out_channels: int,
-            kernel_size: Tuple,
+            kernel_size: int=5,
             blocks_num: int=5,
         ):
         super().__init__()
@@ -135,7 +155,17 @@ class DecoderPostNet(Module):
             self,
             x: Tensor,
         ) -> Tensor:
-        return self.postnet_sequential(x)
+        x = einops.rearrange(
+            tensor=x,
+            pattern='b f m -> b m f',
+        )
+        postnet_outputs = self.postnet_sequential(x)
+        postnet_outputs = einops.rearrange(
+            tensor=postnet_outputs,
+            pattern='b f m -> b m f',
+        )
+
+        return postnet_outputs
 
 
 class Tacotron2Decoder(Module):
@@ -145,7 +175,6 @@ class Tacotron2Decoder(Module):
         super().__init__()
         self.prenet = DecoderPreNet()
         self.postnet = DecoderPostNet()
-        self.
 
     def forward(
             self,
