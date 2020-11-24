@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Tuple
 
 import einops
 import torch
@@ -9,7 +10,7 @@ from torch.nn import (
     Dropout,
     Embedding,
     Linear,
-    LSTM,
+    LSTMCell,
     Module,
     ReLU,
 )
@@ -85,10 +86,10 @@ class Tacotron2Encoder(Module):
         return padded_lstm_outputs
 
 
-class DecoderPreNet(Module):
+class PreNet(Module):
     def __init__(
             self,
-            in_features: int=256,
+            in_features: int=80,
             out_features: int=256,
             dropout_p: float=0.5,
             blocks_num: int=2,
@@ -96,11 +97,19 @@ class DecoderPreNet(Module):
         super().__init__()
 
         blocks_ordered_dict = OrderedDict()
+        blocks_ordered_dict['linear_block_0'] = Sequential(
+            Linear(
+                in_features=in_features,
+                out_features=out_features,
+            ),
+            ReLU(),
+            Dropout(p=dropout_p),
+        )
 
-        for i in range(blocks_num):
+        for i in range(1, blocks_num):
             blocks_ordered_dict[f'linear_block_{i}'] = Sequential(
                 Linear(
-                    in_features=in_features,
+                    in_features=out_features,
                     out_features=out_features,
                 ),
                 ReLU(),
@@ -116,7 +125,7 @@ class DecoderPreNet(Module):
         return self.prenet_sequential(x)
 
 
-class DecoderPostNet(Module):
+class PostNet(Module):
     def __init__(
             self,
             in_channels: int,
@@ -127,7 +136,6 @@ class DecoderPostNet(Module):
         super().__init__()
 
         blocks_ordered_dict = OrderedDict()
-
         blocks_ordered_dict['conv_block_0'] = Sequential(
             Conv1d(
                 in_channels=in_channels,
@@ -171,16 +179,73 @@ class DecoderPostNet(Module):
 class Tacotron2Decoder(Module):
     def __init__(
             self,
+            mel_channels_num: int=80,
+            frames_per_step_num: int=1,
+            embedding_dim: int=512,
+            prenet_dim: int=256,
+            prenet_dropout_p: float=0.5,
+            prenet_blocks_num: int=2,
+            attention_rnn_dim: int=512,
+            decoder_rnn_dim: int=512,
         ):
         super().__init__()
-        self.prenet = DecoderPreNet()
-        self.postnet = DecoderPostNet()
+
+        self.#TODO
+
+        self.prenet = PreNet(
+            in_features=mel_channels_num * frames_per_step_num,
+            out_features=prenet_dim,
+            dropout_p=prenet_dropout_p,
+            blocks_num=prenet_blocks_num,
+        )
+        self.attention_rnn = LSTMCell(
+            input_size=embedding_dim + prenet_dim,
+            hidden_size=attention_rnn_dim,
+        )
+        self.attention_layer = Attention(
+            #TODO
+        )
+        self.decoder_rnn = LSTMCell(
+            input_size=embedding_dim + attention_rnn_dim,
+            hidden_size=decoder_rnn_dim,
+        )
+        self.linear_projection = Linear(
+            in_features=decoder_rnn_dim + encoder_embedding_dim,
+            out_features=mel_channels_num * frames_per_step_num,
+        )
+        self.stop_token_linear_projection = Linear(
+            in_features=embedding_dim + attention_rnn_dim,
+            out_features=1,
+        )
+
+    def init_zero_state(
+            self,
+            batch_size: int,
+            device: torch.device,
+        ) -> Dict[str, Tensor]:
+        decoder_outputs = torch.zeros(
+            size=(
+                batch_size,
+                self.mel_channels_num * self.frames_per_step_num,
+            ),
+        ).to(self.device)
+
+        state = dict(
+            decoder_outputs=decoder_outputs,
+        )
+
+        return state
 
     def forward(
             self,
-            x: Tensor,
+            encoder_outputs: Tensor,
+            lengths: Tensor,
+            mel_specs: Tensor, #TODO check types with torch
         ) -> Tensor:
-        pass
+        batch_size, _, _ = encoder_outputs.shape
+        zero_state = self.init_zero_state(batch_size=batch_size)
+
+        decoder_outputs = zero_state['decoder_outputs']
 
 
 class WaveNetVocoder(Module):
