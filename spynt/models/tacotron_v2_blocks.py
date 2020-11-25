@@ -125,55 +125,101 @@ class PreNet(Module):
         return self.prenet_sequential(x)
 
 
-class PostNet(Module):
+class LocationBlock(nn.Module):
     def __init__(
             self,
-            in_channels: int,
-            out_channels: int,
-            kernel_size: int=5,
-            blocks_num: int=5,
+            attention_n_filters: int,
+            attention_kernel_size: int,
+            attention_dim: int,
         ):
         super().__init__()
 
+        padding = attention_kernel_size // 2
+
         blocks_ordered_dict = OrderedDict()
-        blocks_ordered_dict['conv_block_0'] = Sequential(
-            Conv1d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                padding=kernel_size // 2,
-            ),
-            BatchNorm1d(num_features=out_channels),
+        blocks_ordered_dict['conv'] = Conv1d(
+            in_channels=2,
+            out_channels=attention_n_filters,
+            kernel_size=attention_kernel_size,
+            padding=padding,
+            bias=False,
+            stride=1,
+            dilation=1,
+        )
+        blocks_ordered_dict['transpose'] = Rearrange(
+            pattern='b x y -> b y x',
+        )
+        blocks_ordered_dict['projection'] = Linear(
+            in_features=attention_n_filters,
+            out_features=attention_dim,
+            bias=False,
         )
 
-        for i in range(1, blocks_num):
-            blocks_ordered_dict[f'conv_block_{i}'] = Sequential(
-                Conv1d(
-                    in_channels=out_channels,
-                    out_channels=out_channels,
-                    kernel_size=kernel_size,
-                    padding=kernel_size // 2,
-                ),
-                BatchNorm1d(num_features=out_channels),
-            )
+        self.blocks = Sequential(blocks_ordered_dict)
 
-        self.postnet_sequential = Sequential(blocks_ordered_dict)
+    def forward(self, attention_weights):
+        output = self.blocks(attention_weights)
+
+        return output
+
+
+class LocationSensitiveAttention(nn.Module):
+    def __init__(
+            self,
+            attention_rnn_dim,
+            embedding_dim,
+            attention_dim,
+            attention_location_n_filters,
+            attention_location_kernel_size
+        ):
+        super().__init__()
+
+        self.query = nn.Linear(attention_rnn_dim, attention_dim, bias=False)
+        self.memory = nn.Linear(embedding_dim, attention_dim, bias=False)
+        self.b = nn.Linear(attention_dim, 1, bias=False)
+        self.location_layer = LocationBlock(
+            attention_location_n_filters,
+            attention_location_kernel_size,
+            attention_dim
+        )
+        self.score_mask_value = -float("inf")
+
+    def get_alignment_energies(
+            self,
+            query,
+            processed_memory,
+            attention_weights_cat
+        ):
+        processed_query = self.query_layer(query.unsqueeze(1))
+        processed_attention_weights = self.location_layer(attention_weights_cat)
+
+        energies = self.v(torch.tanh(
+            processed_query + processed_attention_weights + processed_memory
+        ))
+
+        energies = energies.squeeze(2)
+
+        return energies
 
     def forward(
             self,
-            x: Tensor,
-        ) -> Tensor:
-        x = einops.rearrange(
-            tensor=x,
-            pattern='b f m -> b m f',
-        )
-        postnet_outputs = self.postnet_sequential(x)
-        postnet_outputs = einops.rearrange(
-            tensor=postnet_outputs,
-            pattern='b f m -> b m f',
+            attention_hidden_state,
+            memory,
+            processed_memory,
+            attention_weights_cat,
+            mask
+        ):
+        alignment = self.get_alignment_energies(
+            attention_hidden_state, processed_memory, attention_weights_cat
         )
 
-        return postnet_outputs
+        alignment = alignment.masked_fill(mask, self.score_mask_value)
+
+        attention_weights = F.softmax(alignment, dim=1)
+        attention_context = torch.bmm(attention_weights.unsqueeze(1), memory)
+        attention_context = attention_context.squeeze(1)
+
+        return attention_context, attention_weights
 
 
 class Tacotron2Decoder(Module):
@@ -189,8 +235,6 @@ class Tacotron2Decoder(Module):
             decoder_rnn_dim: int=512,
         ):
         super().__init__()
-
-        self.#TODO
 
         self.prenet = PreNet(
             in_features=mel_channels_num * frames_per_step_num,
@@ -259,4 +303,55 @@ class WaveNetVocoder(Module):
             x: Tensor,
         ):
         pass
+
+
+class PostNet(Module):
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: int=5,
+            blocks_num: int=5,
+        ):
+        super().__init__()
+
+        blocks_ordered_dict = OrderedDict()
+        blocks_ordered_dict['conv_block_0'] = Sequential(
+            Conv1d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                padding=kernel_size // 2,
+            ),
+            BatchNorm1d(num_features=out_channels),
+        )
+
+        for i in range(1, blocks_num):
+            blocks_ordered_dict[f'conv_block_{i}'] = Sequential(
+                Conv1d(
+                    in_channels=out_channels,
+                    out_channels=out_channels,
+                    kernel_size=kernel_size,
+                    padding=kernel_size // 2,
+                ),
+                BatchNorm1d(num_features=out_channels),
+            )
+
+        self.postnet_sequential = Sequential(blocks_ordered_dict)
+
+    def forward(
+            self,
+            x: Tensor,
+        ) -> Tensor:
+        x = einops.rearrange(
+            tensor=x,
+            pattern='b f m -> b m f',
+        )
+        postnet_outputs = self.postnet_sequential(x)
+        postnet_outputs = einops.rearrange(
+            tensor=postnet_outputs,
+            pattern='b m f -> b f m',
+        )
+
+        return postnet_outputs
 
