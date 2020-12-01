@@ -1,14 +1,15 @@
-import string
 from pathlib import Path
 from PIL import Image
+import string
+from typing import List, Tuple
 
 import einops
 import torch
 import torchaudio
-from torch import Tensor
+from torch import Tensor, FloatTensor, IntTensor
 from torch.utils.data import Dataset, DataLoader
 
-from peach.utils import TokenConverter
+from spynt.utils import CharVocab
 
 
 def zero_padding(sequence, new_length):
@@ -21,62 +22,80 @@ def zero_padding(sequence, new_length):
 class LJSpeechDataset(Dataset):
     def __init__(
             self,
-            filenames,
-            targets,
-            max_waveform_length=20000,
-            max_target_length=100,
+            filenames: List[str],
+            tokens_seqs: List[List[str]],
+            max_waveform_length: int=20000,
+            max_target_length: int=100,
         ):
         self.filenames = filenames
-        self.targets = targets
-        self.max_waveform_length = max_waveform_length
-        self.max_target_length = max_target_length
+        self.tokens_seqs = tokens_seqs
 
-    def __len__(self):
-        return len(self.filenames)
+    def get_tags(
+            self,
+            idx: int,
+        ) -> IntTensor:
+        tokens_seq = self.tokens_seqs[idx]
+        tags_seq = Tensor(Vocabulary.tokens_seq2tags_seq(
+            tokens_seq=tokens_seq,
+        ))
+        #target_length = min(len(target), self.max_target_length)
+        #padded_target = torch.zeros(self.max_target_length)
+        #padded_target[:target_length] = target[:target_length]
+        #target_length = torch.tensor(target_length)
 
-    def __getitem__(self, idx):
+        return tags_seq
+
+    def get_waveform(
+            self,
+            idx: int,
+        ) -> Tuple[Tensor, Tensor]:
         filename = self.filenames[idx]
         waveform, sample_rate = torchaudio.load(filename)
         waveform = einops.rearrange(waveform, 'b x -> (b x)')
-        target = Tensor(TokenConverter.symbols2numbers(
-            symbols=self.targets[idx],
-        ))
 
         waveform_length = min(len(waveform), self.max_waveform_length)
         padded_waveform = torch.zeros(self.max_waveform_length)
         padded_waveform[:waveform_length] = waveform[:waveform_length]
         waveform_length = torch.tensor(waveform_length)
 
-        target_length = min(len(target), self.max_target_length)
-        padded_target = torch.zeros(self.max_target_length)
-        padded_target[:target_length] = target[:target_length]
-        target_length = torch.tensor(target_length)
+        return padded_waveform, waveform_length
+
+    def __getitem__(
+            self,
+            idx: int,
+        ):
+
+        waveform, waveform_length = self.get_waveform(idx=idx)
+        tags_seq, tags_seq_length = self.get_tags(idx=idx)
 
         result = (
-            padded_waveform,
-            padded_target,
+            waveform,
+            tags_seq,
             waveform_length,
-            target_length,
+            tags_seq_length,
         )
 
         return result
+
+    def __len__(self):
+        return len(self.filenames)
 
 
 class LJSpeechDataModule:
     def __init__(
             self,
-            data_dir: Path,
+            data_path: Path,
             batch_size: int,
             num_workers: int,
         ):
-        self.data_dir = data_dir
+        self.data_path = data_path
         self.batch_size = batch_size
         self.num_workers = num_workers
 
     def prepare_data(self):
-        wavs_dir = self.data_dir / "wavs"
-        targets_path = self.data_dir / "metadata.csv"
-        wav_filenames = list(str(p) for p in wavs_dir.glob('*.wav'))
+        wavs_path = self.data_path / "wavs"
+        targets_path = self.data_path / "metadata.csv"
+        wav_filenames = list(str(p) for p in wavs_path.glob('*.wav'))
         wav_filenames.sort()
         targets_file = open(targets_path, 'r')
 
@@ -97,8 +116,8 @@ class LJSpeechDataModule:
 
     def setup(
             self,
-            val_ratio,
-        ):
+            val_ratio: float,
+        ) -> None:
         data = self.prepare_data()
         wav_filenames = data['filenames']
         targets = data['targets']
@@ -117,7 +136,7 @@ class LJSpeechDataModule:
             lengths=[train_size, val_size],
         )
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         train_dataloader = DataLoader(
             dataset=self.train_dataset,
             batch_size=self.batch_size,
@@ -126,7 +145,7 @@ class LJSpeechDataModule:
 
         return train_dataloader
 
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         val_dataloader = DataLoader(
             dataset=self.val_dataset,
             batch_size=self.batch_size,
