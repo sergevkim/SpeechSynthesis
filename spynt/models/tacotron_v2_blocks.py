@@ -1,7 +1,7 @@
 from collections import OrderedDict
-from typing import Tuple
+from typing import Dict, List, Tuple
 
-import einops
+from einops.layers.torch import Rearrange
 import torch
 from torch import Tensor
 from torch.nn import (
@@ -10,9 +10,11 @@ from torch.nn import (
     Dropout,
     Embedding,
     Linear,
+    LSTM, #TODO choose
     LSTMCell,
     Module,
     ReLU,
+    Sequential,
 )
 import torch.nn.utils.rnn as rnn
 
@@ -47,8 +49,8 @@ class Tacotron2Encoder(Module):
 
         self.convs = Sequential(self.convs_ordered_dict)
         self.lstm = LSTM(
-            input_size=embedding_num,
-            hidden_size=(embedding_num // 2),
+            input_size=embedding_dim,
+            hidden_size=(embedding_dim // 2),
             num_layers=1,
             batch_first=True,
             bidirectional=True,
@@ -125,7 +127,7 @@ class PreNet(Module):
         return self.prenet_sequential(x)
 
 
-class LocationBlock(nn.Module):
+class LocationBlock(Module):
     def __init__(
             self,
             attention_n_filters: int,
@@ -163,7 +165,7 @@ class LocationBlock(nn.Module):
         return output
 
 
-class LocationSensitiveAttention(nn.Module):
+class LocationSensitiveAttention(Module):
     def __init__(
             self,
             attention_rnn_dim,
@@ -174,9 +176,9 @@ class LocationSensitiveAttention(nn.Module):
         ):
         super().__init__()
 
-        self.query = nn.Linear(attention_rnn_dim, attention_dim, bias=False)
-        self.memory = nn.Linear(embedding_dim, attention_dim, bias=False)
-        self.b = nn.Linear(attention_dim, 1, bias=False)
+        self.query = Linear(attention_rnn_dim, attention_dim, bias=False)
+        self.memory = Linear(embedding_dim, attention_dim, bias=False)
+        self.b = Linear(attention_dim, 1, bias=False)
         self.location_layer = LocationBlock(
             attention_location_n_filters,
             attention_location_kernel_size,
@@ -246,15 +248,19 @@ class Tacotron2Decoder(Module):
             input_size=embedding_dim + prenet_dim,
             hidden_size=attention_rnn_dim,
         )
-        self.attention_layer = Attention(
-            #TODO
+        self.attention_layer = LocationSensitiveAttention(
+            attention_rnn_dim=10,
+            embedding_dim=10,
+            attention_dim=10,
+            attention_location_n_filters=10,
+            attention_location_kernel_size=10,
         )
         self.decoder_rnn = LSTMCell(
             input_size=embedding_dim + attention_rnn_dim,
             hidden_size=decoder_rnn_dim,
         )
         self.linear_projection = Linear(
-            in_features=decoder_rnn_dim + encoder_embedding_dim,
+            in_features=decoder_rnn_dim + embedding_dim,
             out_features=mel_channels_num * frames_per_step_num,
         )
         self.stop_token_linear_projection = Linear(

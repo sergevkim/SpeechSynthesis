@@ -1,8 +1,13 @@
+from typing import List
+
 import torch
 from torch import Tensor
-from torch.nn import MSELoss
+from torch.nn import (
+    Module,
+    MSELoss,
+)
 
-from .tacotron_v2_blocks import (
+from spynt.models.tacotron_v2_blocks import (
     PostNet,
     Tacotron2Decoder,
     Tacotron2Encoder,
@@ -24,7 +29,10 @@ class Tacotron2Synthesizer(Module):
             embedding_dim=embedding_dim,
         )
         self.decoder = Tacotron2Decoder()
-        self.postnet = PostNet()
+        self.postnet = PostNet(
+            in_channels=100,  #TODO change
+            out_channels=100,
+        )
         self.vocoder = WaveNetVocoder()
 
     def forward(
@@ -48,7 +56,7 @@ class Tacotron2Synthesizer(Module):
             self,
             batch: Tensor,
             batch_idx: int,
-        ) #TODO:
+        ): #TODO
         x, y = batch
         x = x.to(self.device)
         y = y.to(self.device)
@@ -59,4 +67,9 @@ class Tacotron2Synthesizer(Module):
 
     def validation_step(self):
         pass
+
+
+if __name__ == '__main__':
+    synthesizer = Tacotron2Synthesizer(dict_length=10)
+    print(synthesizer)
 
