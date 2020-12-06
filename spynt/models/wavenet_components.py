@@ -1,3 +1,4 @@
+import einops
 import torch
 from torch import Tensor
 from torch.nn import (
@@ -11,7 +12,7 @@ from torch.nn import (
 )
 
 
-class CasualConv1d(Module):
+class CausalConv1d(Module):
     def __init__(
             self,
             in_channels: int,
@@ -132,20 +133,27 @@ class WaveNet(Module):
 
     def forward(
             self,
-            waveforms: Tensor
+            waveforms: Tensor,
             mel_specs: Tensor,
         ) -> Tensor:
+        skips_list = list()
 
         for block in self.wavenet_blocks:
             skips, residuals = block(
                 inputs=residuals,
                 mel_specs=mel_specs,
             )
-            skips_list.append()
+            skips_list.append(skips)
 
-        x = self.head(x)
+        skips = torch.stack(skips_list, dim=0).sum(dim=0)
+        skips = einops.reduce(
+            tensor=skips,
+            pattern='batch_size skip_channels length -> skip_channels length',
+            reduction='sum',
+        )
+        outputs = self.head(skips)
 
-        return x
+        return outputs
 
 
 if __name__ == '__main__':
