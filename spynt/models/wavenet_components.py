@@ -3,6 +3,7 @@ import torch
 from torch import Tensor
 from torch.nn import (
     Conv1d,
+    ConvTranspose1d,
     Linear,
     Module,
     ModuleList,
@@ -99,17 +100,35 @@ class WaveNet(Module):
             blocks_num: int = 16,
             dilation_cycle_parameter: int = 8,
             audio_channels: int = 256,
+            upsample_kernel_size: int = 800,
+            win_length: int = 1024,
+            hop_length: int = 256,
             mels_num: int = 80,
             skip_channels: int = 240,
             residual_channels: int = 120,
         ):
         super().__init__()
+        upsample_stride = hop_length
+        upsample_padding = (upsample_kernel_size
+            + 4 * upsample_stride - win_length) // 2
+        self.upsample_conv = ConvTranspose1d(
+            in_channels=mels_num,
+            out_channels=mels_num,
+            kernel_size=upsample_kernel_size,
+            stride=upsample_stride,
+            padding=upsample_padding,
+        )
+        self.embedding_conv = Conv1d(
+            in_channels=1,
+            out_channels=residual_channels,
+            kernel_size=1,
+        )
         self.wavenet_blocks = ModuleList()
 
         for i in range(blocks_num // dilation_cycle_parameter):
             for j in range(dilation_cycle_parameter):
                 self.wavenet_blocks.append(WaveNetBlock(
-                    dilation=2 ** i,
+                    dilation=2 ** j,
                     mels_num=mels_num,
                     skip_channels=skip_channels,
                     residual_channels=residual_channels,
@@ -136,6 +155,9 @@ class WaveNet(Module):
             waveforms: Tensor,
             mel_specs: Tensor,
         ) -> Tensor:
+        mel_specs = self.upsample_conv(mel_specs)
+        residuals = self.embedding_conv(waveforms)
+
         skips_list = list()
 
         for block in self.wavenet_blocks:
@@ -157,5 +179,5 @@ class WaveNet(Module):
 
 
 if __name__ == '__main__':
-    vocoder = WaveNetVocoder()
-    print(vocoder)
+    wavenet = WaveNet()
+    print(wavenet)
