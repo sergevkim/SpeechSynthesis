@@ -94,7 +94,7 @@ class WaveNetBlock(Module):
         return skips, residuals
 
 
-class WaveNet(Module):
+class WaveNetBody(Module):
     def __init__(
             self,
             blocks_num: int = 16,
@@ -179,5 +179,5 @@ class WaveNet(Module):
 
 
 if __name__ == '__main__':
-    wavenet = WaveNet()
+    wavenet = WaveNetBody()
     print(wavenet)

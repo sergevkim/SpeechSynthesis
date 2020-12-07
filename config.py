@@ -6,7 +6,7 @@ import torch
 
 @dataclass
 class CommonArguments:
-    device: torch.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device: torch.device = torch.device('cuda:0')
     seed: int = 9
     verbose: bool = True
     version: str = '0.1.0'
@@ -39,4 +39,3 @@ class SpecificArguments:
     vocoder_repeated_layers: int = 16
     vocoder_residual_channels: int = 120
     vocoder_skip_channels: int = 240
-

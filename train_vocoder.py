@@ -6,7 +6,12 @@ from spynt.loggers import NeptuneLogger
 from spynt.models import WaveNetVocoder
 from spynt.trainer import Trainer
 
-from config import Arguments
+from config import (
+    CommonArguments,
+    DataArguments,
+    TrainArguments,
+    SpecificArguments,
+)
 
 
 def main(args):
@@ -22,6 +27,7 @@ def main(args):
     #    api_key=None,
     #    args.project_name=None,
     #)
+    logger = None
     trainer = Trainer(
         logger=logger,
         max_epoch=args.max_epoch,

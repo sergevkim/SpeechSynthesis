@@ -5,7 +5,7 @@ from torch.nn import Module
 from torch.optim import Adam, Optimizer
 from torch.optim.lr_scheduler import StepLR, _LRScheduler
 
-from spynt.models.wavenet_components import WaveNet
+from spynt.models.wavenet_components import WaveNetBody
 
 
 class WaveNetVocoder(Module):
@@ -13,13 +13,13 @@ class WaveNetVocoder(Module):
             self,
         ):
         super().__init__()
-        self.wavenet = WaveNet()
+        self.wavenet_body = WaveNetBody()
 
     def forward(
             self,
             x: Tensor
         ) -> Tensor:
-        x = self.wavenet(x)
+        x = self.wavenet_body(x)
 
         return x
 
