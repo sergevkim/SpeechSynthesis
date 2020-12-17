@@ -11,7 +11,7 @@ from torch.nn import (
     Sequential,
     Softmax,
 )
-from torchaudio.trandforms import (
+from torchaudio.transforms import (
     MuLawEncoding,
     MuLawDecoding,
 )

@@ -1,10 +1,11 @@
 from typing import List, Tuple
 
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import CrossEntropyLoss, Module
 from torch.optim import Adam, Optimizer
 from torch.optim.lr_scheduler import StepLR, _LRScheduler
-from torchaudio.trandforms import (
+from torchaudio.transforms import (
+    MelSpectrogram,
     MuLawEncoding,
     MuLawDecoding,
 )
@@ -28,6 +29,7 @@ class WaveNetVocoder(Module):
         self.verbose = verbose
         self.version = version
 
+        self.criterion = CrossEntropyLoss()
         self.mel_spectrogramer = MelSpectrogram(
             n_mels=80,
         ).to(device)
@@ -50,8 +52,9 @@ class WaveNetVocoder(Module):
             batch_idx: int,
         ) -> Tensor:
         waveforms, _ = batch
-        waveforms = waveforms.to(device)
+        waveforms = waveforms.to(self.device)
         mel_specs = self.mel_spectrogramer(waveforms)
+        print(waveforms.shape, mel_specs.shape)
 
         outputs, ground_truths = self.wavenet_body(
             waveforms=waveforms,
