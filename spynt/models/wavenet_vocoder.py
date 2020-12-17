@@ -11,8 +11,17 @@ from spynt.models.wavenet_components import WaveNetBody
 class WaveNetVocoder(Module):
     def __init__(
             self,
+            device,
+            learning_rate: float = 3e-4,
+            verbose: bool = True,
+            version: str = '1.0',
         ):
         super().__init__()
+        self.device = device
+        self.learning_rate = learning_rate
+        self.verbose = verbose
+        self.version = version
+
         self.wavenet_body = WaveNetBody()
 
     def forward(
@@ -65,7 +74,7 @@ class WaveNetVocoder(Module):
             self,
         ) -> Tuple[List[Optimizer], List[_LRScheduler]]:
         optimizer = Adam(
-            params=self.generator.parameters(),
+            params=self.wavenet_body.parameters(),
             lr=self.learning_rate,
         )
         optimizers = [optimizer]
@@ -75,7 +84,7 @@ class WaveNetVocoder(Module):
             step_size=self.scheduler_step_size,
             gamma=self.scheduler_gamma,
         )
-        schedulers = [scheduler]
+        schedulers = []
 
         return optimizers, schedulers
 

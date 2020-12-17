@@ -26,11 +26,6 @@ class LJSpeechDataset2(Dataset):
         ):
         self.filenames = filenames
 
-    def get_tags(
-            self,
-            idx: int,
-        ) -> IntTensor:
-
     def get_waveform(
             self,
             idx: int,
@@ -52,13 +47,10 @@ class LJSpeechDataset2(Dataset):
         ):
 
         waveform, waveform_length = self.get_waveform(idx=idx)
-        tags_seq, tags_seq_length = self.get_tags(idx=idx)
 
         result = (
             waveform,
-            tags_seq,
             waveform_length,
-            tags_seq_length,
         )
 
         return result
@@ -96,9 +88,8 @@ class LJSpeechDataModule2:
         data = self.prepare_data()
         wav_filenames = data['filenames']
 
-        full_dataset = LJSpeechDataset(
+        full_dataset = LJSpeechDataset2(
             filenames=wav_filenames,
-            targets=targets,
         )
 
         full_size = len(full_dataset)
