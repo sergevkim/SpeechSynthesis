@@ -1,4 +1,3 @@
-from __future__ import annotations
 from pathlib import Path
 import string
 from typing import List, Union
@@ -96,7 +95,7 @@ class Vocabulary:
     def build_vocabulary(
             cls,
             text_corpus_path: Union[Path, str],
-        ) -> Vocabulary:
+        ):
         vocabulary = Vocabulary()
 
         lines = cls.get_lines(text_corpus_path=text_corpus_path)

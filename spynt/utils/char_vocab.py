@@ -1,4 +1,3 @@
-from __future__ import annotations
 from pathlib import Path
 from typing import List, Union
 
@@ -91,7 +90,7 @@ class CharVocab:
     def build_char_vocab(
             cls,
             text_corpus_path: Union[Path, str],
-        ) -> CharVocab:
+        ):
         char_vocab = CharVocab()
 
         lines = cls.get_lines(text_corpus_path=text_corpus_path)
