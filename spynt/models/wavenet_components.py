@@ -11,6 +11,11 @@ from torch.nn import (
     Sequential,
     Softmax,
 )
+from torchaudio.trandforms import (
+    MuLawEncoding,
+    MuLawDecoding,
+)
+
 
 
 class CausalConv1d(Module):
@@ -108,6 +113,9 @@ class WaveNetBody(Module):
             residual_channels: int = 120,
         ):
         super().__init__()
+        self.mu_law_encoder = MuLawEncoding(256)
+        self.mu_law_decoder = MuLawDecoding(256)
+
         upsample_stride = hop_length
         upsample_padding = (upsample_kernel_size
             + 4 * upsample_stride - win_length) // 2
@@ -155,14 +163,15 @@ class WaveNetBody(Module):
             waveforms: Tensor,
             mel_specs: Tensor,
         ) -> Tensor:
+        codes = self.mu_law_encoder(waveforms)
         mel_specs = self.upsample_conv(mel_specs)
-        residuals = self.embedding_conv(waveforms)
+        embeddings = self.embedding_conv(codes)
 
         skips_list = list()
 
         for block in self.wavenet_blocks:
             skips, residuals = block(
-                inputs=residuals,
+                inputs=embeddings,
                 mel_specs=mel_specs,
             )
             skips_list.append(skips)
@@ -175,7 +184,7 @@ class WaveNetBody(Module):
         )
         outputs = self.head(skips)
 
-        return outputs
+        return outputs, codes
 
 
 if __name__ == '__main__':

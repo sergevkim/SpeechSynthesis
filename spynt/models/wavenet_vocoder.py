@@ -4,6 +4,10 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Adam, Optimizer
 from torch.optim.lr_scheduler import StepLR, _LRScheduler
+from torchaudio.trandforms import (
+    MuLawEncoding,
+    MuLawDecoding,
+)
 
 from spynt.models.wavenet_components import WaveNetBody
 
@@ -19,8 +23,16 @@ class WaveNetVocoder(Module):
         super().__init__()
         self.device = device
         self.learning_rate = learning_rate
+        self.scheduler_step_size = 1
+        self.scheduler_gamma = 1
         self.verbose = verbose
         self.version = version
+
+        self.mel_spectrogramer = MelSpectrogram(
+            n_mels=80,
+        ).to(device)
+        self.mu_law_encoder = MuLawEncoding(256)
+        self.mu_law_decoder = MuLawDecoding(256)
 
         self.wavenet_body = WaveNetBody()
 
@@ -37,7 +49,15 @@ class WaveNetVocoder(Module):
             batch: Tensor,
             batch_idx: int,
         ) -> Tensor:
-        loss = self(batch)
+        waveforms, _ = batch
+        waveforms = waveforms.to(device)
+        mel_specs = self.mel_spectrogramer(waveforms)
+
+        outputs, ground_truths = self.wavenet_body(
+            waveforms=waveforms,
+            mel_specs=mel_specs,
+        )
+        loss = self.criterion(outputs, ground_truths)
 
         return loss
 
@@ -56,7 +76,7 @@ class WaveNetVocoder(Module):
             batch: Tensor,
             batch_idx: int,
         ) -> Tensor:
-        loss = self(batch)
+        loss = self.training_step(batch, batch_idx)
 
         return loss
 

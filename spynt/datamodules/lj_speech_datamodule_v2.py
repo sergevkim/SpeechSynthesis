@@ -22,9 +22,9 @@ class LJSpeechDataset2(Dataset):
             self,
             filenames: List[str],
             max_waveform_length: int=20000,
-            max_target_length: int=100,
         ):
         self.filenames = filenames
+        self.max_waveform_length = max_waveform_length
 
     def get_waveform(
             self,

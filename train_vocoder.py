@@ -15,7 +15,7 @@ from config import (
 
 
 def main(args):
-    vocoder = WaveNetVocoder().to(args.device)
+    vocoder = WaveNetVocoder(args.device).to(args.device)
     datamodule = LJSpeechDataModule2(
         data_path=args.data_path,
         batch_size=args.batch_size,
