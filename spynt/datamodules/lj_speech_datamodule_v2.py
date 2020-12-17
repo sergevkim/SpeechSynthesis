@@ -9,8 +9,6 @@ import torchaudio
 from torch import Tensor, FloatTensor, IntTensor
 from torch.utils.data import Dataset, DataLoader
 
-from spynt.utils import CharVocab
-
 
 def zero_padding(sequence, new_length):
     padded_sequence = torch.zeros(new_length)
@@ -19,16 +17,19 @@ def zero_padding(sequence, new_length):
     return padded_sequence
 
 
-class LJSpeechDataset(Dataset):
+class LJSpeechDataset2(Dataset):
     def __init__(
             self,
             filenames: List[str],
-            tokens_seqs: List[List[str]],
             max_waveform_length: int=20000,
             max_target_length: int=100,
         ):
         self.filenames = filenames
-        self.tokens_seqs = tokens_seqs
+
+    def get_tags(
+            self,
+            idx: int,
+        ) -> IntTensor:
 
     def get_waveform(
             self,
@@ -49,11 +50,15 @@ class LJSpeechDataset(Dataset):
             self,
             idx: int,
         ):
+
         waveform, waveform_length = self.get_waveform(idx=idx)
+        tags_seq, tags_seq_length = self.get_tags(idx=idx)
 
         result = (
             waveform,
+            tags_seq,
             waveform_length,
+            tags_seq_length,
         )
 
         return result
@@ -62,7 +67,7 @@ class LJSpeechDataset(Dataset):
         return len(self.filenames)
 
 
-class LJSpeechDataModule:
+class LJSpeechDataModule2:
     def __init__(
             self,
             data_path: Path,
@@ -75,22 +80,11 @@ class LJSpeechDataModule:
 
     def prepare_data(self):
         wavs_path = self.data_path / "wavs"
-        targets_path = self.data_path / "metadata.csv"
         wav_filenames = list(str(p) for p in wavs_path.glob('*.wav'))
         wav_filenames.sort()
-        targets_file = open(targets_path, 'r')
-
-        targets = list()
-
-        for i in range(len(wav_filenames)):
-            line = targets_file.readline()
-            table = str.maketrans('', '', string.punctuation)
-            target = line.split('|')[-1].lower().translate(table)[:-1]
-            targets.append(target)
 
         data = dict(
             filenames=wav_filenames,
-            targets=targets,
         )
 
         return data
@@ -101,7 +95,6 @@ class LJSpeechDataModule:
         ) -> None:
         data = self.prepare_data()
         wav_filenames = data['filenames']
-        targets = data['targets']
 
         full_dataset = LJSpeechDataset(
             filenames=wav_filenames,

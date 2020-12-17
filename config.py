@@ -31,9 +31,9 @@ class TrainArguments:
 
 @dataclass
 class SpecificArguments:
-    n_fft: int
-    win_length: int
-    hop_length: int
+    n_fft: int = 80
+    win_length: int = 128
+    hop_length: int = 256
     vocoder_audio_channels: int = 256
     vocoder_dilation_cycle_parameter: int = 8
     vocoder_repeated_layers: int = 16

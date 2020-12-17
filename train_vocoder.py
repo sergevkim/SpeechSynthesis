@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from spynt.datamodules import LJSpeechDataModule
+from spynt.datamodules import LJSpeechDataModule2
 from spynt.loggers import NeptuneLogger
 from spynt.models import WaveNetVocoder
 from spynt.trainer import Trainer
@@ -16,7 +16,7 @@ from config import (
 
 def main(args):
     vocoder = WaveNetVocoder().to(args.device)
-    datamodule = LJSpeechDataModule(
+    datamodule = LJSpeechDataModule2(
         data_path=args.data_path,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
